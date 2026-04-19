@@ -101,10 +101,3 @@ Sau khi dùng lệnh `/login <username> <password>` trên Telegram để liên k
 
 ## 📄 Giấy phép
 Dự án được phát hành dưới giấy phép MIT. Tự do sử dụng và phát triển thêm.
-```
-### Mẹo nhỏ cho bạn:
-1.  **Chụp ảnh:** Bạn hãy chụp ảnh màn hình lúc bạn chọn hàng loạt file (có cái thanh xanh nổi lên) và lúc đang xem video trong Modal. Upload những ảnh đó lên thư mục dự án và dùng cú pháp `![Mô tả](đường_dẫn_ảnh)` để nhúng vào README, nhìn sẽ cực kỳ uy tín.
-2.  **License:** Nếu bạn muốn hoàn thiện hơn, hãy tạo thêm một file tên là `LICENSE` và dán nội dung giấy phép MIT vào đó.
-
-Chúc dự án của bạn nhận được thật nhiều Star trên GitHub nhé!
-```
