@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Bảng Quản Trị - {{ site_name }}{% endblock %}
+
+{% block content %}
+<style>
+    /* CSS Tùy chỉnh riêng cho trang Admin */
+    .admin-card { 
+        background: var(--md-surface); 
+        border-radius: 20px; 
+        border: 1px solid var(--md-border); 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02); 
+    }
+    .table thead th { 
+        background: var(--md-surface-variant); 
+        border: none; 
+        color: var(--md-text-secondary); 
+        font-weight: 600; 
+        font-size: 13px; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px; 
+    }
+    .table td { 
+        border-bottom: 1px solid var(--md-border); 
+        padding: 16px 12px; 
+    }
+    .chat-bubble-user { 
+        background: #e8f0fe; color: #1967d2; border-radius: 12px; 
+        padding: 8px 12px; display: inline-block; max-width: 80%; word-wrap: break-word; 
+    }
+    .chat-bubble-admin { 
+        background: var(--md-primary); color: #fff; border-radius: 12px; 
+        padding: 8px 12px; display: inline-block; max-width: 80%; word-wrap: break-word; 
+    }
+    
+    /* ================= RESPONSIVE BẢNG ADMIN ================= */
+    @media (min-width: 992px) {
+        /* Trên PC: Ép bảng hiển thị tràn viền để menu thả xuống không bị kẹt */
+        .table-responsive { overflow: visible !important; } 
+    }
+    @media (max-width: 991px) {
+        /* Trên Mobile: Bật thanh cuộn ngang cho bảng để không bị vỡ bố cục web */
+        .admin-card { padding: 16px !important; overflow: hidden; width: 100%; }
+        .table-responsive { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+        .table td, .table th { white-space: nowrap; } /* Chống rớt dòng làm xấu bảng */
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0 text-dark fw-bold"><i class="fas fa-user-shield me-2 text-primary"></i>Quản trị hệ thống</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8 d-flex flex-column gap-4">
+        
+        <div class="admin-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold mb-0">Người dùng ({{ users|length }})</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Tài khoản</th>
+                            <th>Dung lượng</th>
+                            <th>Trạng thái</th>
+                            <th class="text-end">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="user-avatar" style="width:32px; height:32px; font-size:12px;">{{ user.username[0]|upper }}</div>
+                                    <div>
+                                        <div class="fw-bold text-dark">{{ user.username }} {% if user.role == 'admin' %}<i class="fas fa-shield-alt text-primary ms-1" title="Quản trị viên"></i>{% endif %}</div>
+                                        <div class="small text-muted">{{ user.email or 'Không có email' }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="fw-medium text-secondary">{{ user.storage }}</span></td>
+                            <td>
+                                {% if user.is_banned %}
+                                    <span class="badge bg-danger rounded-pill px-3 py-2" title="{{ user.ban_reason }}">Đã khóa</span>
+                                {% else %}
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Hoạt động</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-light btn-sm rounded-circle" type="button" data-bs-toggle="dropdown" data-bs-boundary="window">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                        <li><a class="dropdown-item py-2" href="#" onclick="openEditModal('{{ user.id }}', '{{ user.username }}', '{{ user.role }}')"><i class="fas fa-pen text-info me-2"></i> Chỉnh sửa Quyền</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        {% if user.id != current_user.id %}
+                                            {% if user.is_banned %}
+                                            <li><a class="dropdown-item py-2 text-success" href="{{ url_for('unban_user', user_id=user.id) }}"><i class="fas fa-unlock me-2"></i> Mở khóa tài khoản</a></li>
+                                            {% else %}
+                                            <li><a class="dropdown-item py-2 text-warning" href="#" onclick="openBanModal('{{ user.id }}', '{{ user.username }}')"><i class="fas fa-ban me-2"></i> Khóa tài khoản</a></li>
+                                            {% endif %}
+                                            <li><a class="dropdown-item py-2 text-danger" href="#" onclick="event.preventDefault(); confirmLink('{{ url_for('delete_user', user_id=user.id) }}', 'Xóa người dùng này?', 'Toàn bộ dữ liệu của họ sẽ bay màu!')"><i class="fas fa-trash me-2"></i> Xóa người dùng</a></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-card p-4">
+            <h5 class="fw-bold mb-4"><i class="fas fa-headset text-success me-2"></i>Live Chat Hỗ trợ</h5>
+            <div class="accordion" id="chatList">
+                {% for c in chats %}
+                <div class="accordion-item border rounded-4 mb-3 overflow-hidden shadow-sm">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#chat{{ loop.index }}">
+                            <div class="d-flex justify-content-between w-100 align-items-center pe-3">
+                                <span><i class="fas fa-user-clock me-2"></i>Khách {{ c.id[-4:] }}</span>
+                                <small class="text-muted fw-normal" style="font-size:11px;">{{ c.updated_at }}</small>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="chat{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#chatList">
+                        <div class="accordion-body bg-light" style="max-height:300px; overflow-y:auto;">
+                            {% for m in c.messages %}
+                                <div class="mb-3 {{ 'text-start' if m.sender=='user' else 'text-end' }}">
+                                    <div class="{{ 'chat-bubble-user shadow-sm' if m.sender=='user' else 'chat-bubble-admin shadow-sm' }}">{{ m.msg }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="p-3 bg-white border-top">
+                            <form action="{{ url_for('chat_admin_send') }}" method="post" class="d-flex gap-2 mb-3">
+                                <input type="hidden" name="chat_id" value="{{ c.id }}">
+                                <input type="text" name="msg" class="form-control rounded-pill bg-light border-0" placeholder="Nhập câu trả lời..." required>
+                                <button type="submit" class="btn btn-primary rounded-pill px-4 fw-medium">Gửi</button>
+                            </form>
+                            <div class="d-flex justify-content-end gap-2">
+                                {% if c.status == 'open' %}
+                                <form action="{{ url_for('chat_admin_close') }}" method="post">
+                                    <input type="hidden" name="chat_id" value="{{ c.id }}">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm rounded-pill"><i class="fas fa-lock me-1"></i>Đóng Chat</button>
+                                </form>
+                                {% endif %}
+                                <form action="{{ url_for('chat_admin_delete') }}" method="post" id="deleteChatForm_{{ c.id }}">
+                                    <input type="hidden" name="chat_id" value="{{ c.id }}">
+                                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" onclick="confirmForm('deleteChatForm_{{ c.id }}', 'Xóa lịch sử trò chuyện này?')"><i class="fas fa-trash me-1"></i>Xóa lịch sử</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-4">Chưa có cuộc trò chuyện nào trong 7 ngày qua.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="admin-card p-4">
+            <h5 class="fw-bold mb-4"><i class="fas fa-sliders-h text-primary me-2"></i>Cấu hình hệ thống</h5>
+            <form action="{{ url_for('update_settings') }}" method="post">
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" name="allow_registration" {% if allow_registration %}checked{% endif %}>
+                    <label class="form-check-label fw-medium ms-2">Mở đăng ký tài khoản</label>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted">Tên Website</label>
+                    <input type="text" class="form-control" name="site_name" value="{{ site_name }}">
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted">Link Logo</label>
+                    <input type="text" class="form-control" name="site_logo" value="{{ site_logo }}">
+                </div>
+                <div class="mb-4">
+                    <label class="small fw-bold text-muted">Thông báo hệ thống (Thanh ngang)</label>
+                    <textarea class="form-control" name="system_message" rows="2" placeholder="Hiển thị thanh ngang trên cùng">{{ system_message }}</textarea>
+                </div>
+                
+                <hr class="my-4 opacity-10">
+                <h6 class="fw-bold mb-3"><i class="fas fa-envelope text-success me-2"></i>Cấu hình SMTP (Email)</h6>
+                <div class="mb-2">
+                    <input type="text" class="form-control form-control-sm" name="smtp_server" value="{{ smtp_server }}" placeholder="VD: smtp.gmail.com">
+                </div>
+                <div class="mb-2">
+                    <input type="number" class="form-control form-control-sm" name="smtp_port" value="{{ smtp_port }}" placeholder="Cổng (VD: 587)">
+                </div>
+                <div class="mb-3">
+                    <input type="email" class="form-control form-control-sm" name="smtp_user" value="{{ smtp_user }}" placeholder="Địa chỉ Email gửi đi">
+                </div>
+                <div class="mb-4">
+                    <input type="password" class="form-control form-control-sm" name="smtp_pass" placeholder="Mật khẩu ứng dụng (Sẽ bị ẩn)">
+                </div>
+                
+                <button class="btn btn-primary w-100 rounded-pill fw-bold py-2 shadow-sm">LƯU CẤU HÌNH</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="banUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-2">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-danger"><i class="fas fa-ban me-2"></i>Khóa tài khoản: <span id="banUsernameDisplay"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('ban_user') }}" method="post">
+                <div class="modal-body py-4">
+                    <input type="hidden" name="user_id" id="banUserId">
+                    <label class="form-label fw-bold text-secondary small">Lý do khóa (Người dùng sẽ thấy thông báo này)</label>
+                    <textarea name="ban_reason" class="form-control bg-light" rows="3" placeholder="VD: Vi phạm điều khoản bảo mật..." required></textarea>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-danger px-4 rounded-pill fw-bold">Khóa ngay</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-2">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-pen text-info me-2"></i>Sửa tài khoản: <span id="editUsernameDisplay" class="text-primary"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('edit_user') }}" method="post">
+                <div class="modal-body py-4">
+                    <input type="hidden" name="user_id" id="editUserId">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary small">Đổi mật khẩu mới (Tùy chọn)</label>
+                        <input type="password" name="password" class="form-control bg-light" placeholder="Để trống nếu giữ nguyên mật khẩu cũ">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-secondary small">Quyền hạn hệ thống</label>
+                        <select name="role" id="editUserRole" class="form-select bg-light">
+                            <option value="user">Người dùng (User)</option>
+                            <option value="admin">Quản trị viên (Admin)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary px-4 rounded-pill fw-bold">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openEditModal(id, username, role) { 
+        document.getElementById('editUserId').value = id; 
+        document.getElementById('editUsernameDisplay').innerText = username; 
+        document.getElementById('editUserRole').value = role; 
+        new bootstrap.Modal(document.getElementById('editUserModal')).show(); 
+    }
+    
+    function openBanModal(id, username) { 
+        document.getElementById('banUserId').value = id; 
+        document.getElementById('banUsernameDisplay').innerText = username; 
+        new bootstrap.Modal(document.getElementById('banUserModal')).show(); 
+    }
+</script>
+{% endblock %}

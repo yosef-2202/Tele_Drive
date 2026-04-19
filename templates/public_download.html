@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tải xuống: {{ file_info.file_name }} - {{ site_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body { 
+            background-color: #f0f4f9; 
+            font-family: 'Google Sans', sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh; 
+        }
+        /* Modal tối màu cho trình xem phim/ảnh */
+        .viewer-dark { background-color: #1f1f1f; }
+        .viewer-header { border-bottom: 1px solid #3c4043; }
+        /* Tối ưu ảnh/video bên trong Modal */
+        #viewerContainer img, #viewerContainer video { max-width: 100%; max-height: 100%; object-fit: contain; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar bg-white border-bottom shadow-sm px-3 py-2">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center gap-2 m-0" href="#">
+                <img src="{{ site_logo }}" alt="Logo" width="32" height="32" class="object-fit-contain">
+                <span class="fs-5 fw-medium text-secondary">{{ site_name }}</span>
+            </a>
+            <span class="navbar-text d-none d-sm-inline small fw-medium text-secondary">
+                <i class="fas fa-lock text-success me-1"></i> Chia sẻ an toàn
+            </span>
+        </div>
+    </nav>
+
+    <div class="container d-flex flex-column justify-content-center flex-grow-1 py-4 py-md-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
+                
+                <div class="card border-0 shadow-sm rounded-4 p-3 p-sm-4 p-md-5">
+                    
+                    {% set ext = file_info.file_name.split('.')[-1].lower() if '.' in file_info.file_name else '' %}
+                    
+                    <div class="mx-auto mb-4 bg-light rounded-4 d-flex align-items-center justify-content-center border border-light-subtle" style="width: 80px; height: 80px;">
+                        {% if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}<i class="fas fa-image fa-2x text-danger"></i>
+                        {% elif ext in ['mp4', 'mkv', 'webm', 'mov'] %}<i class="fas fa-video fa-2x text-danger"></i>
+                        {% elif ext in ['mp3', 'wav', 'ogg'] %}<i class="fas fa-music fa-2x text-info"></i>
+                        {% elif ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf'] %}<i class="fas fa-file-word fa-2x text-primary"></i>
+                        {% elif ext in ['zip', 'rar', '7z', 'tar'] %}<i class="fas fa-file-archive fa-2x text-warning"></i>
+                        {% else %}<i class="fas fa-file-alt fa-2x text-secondary"></i>{% endif %}
+                    </div>
+
+                    <h4 class="text-center text-dark fw-bold mb-3 text-break lh-base">{{ file_info.file_name }}</h4>
+                    
+                    <div class="d-flex justify-content-center align-items-center gap-3 mb-4 text-secondary small">
+                        <span><i class="fas fa-hdd me-1 opacity-75"></i> {{ file_info.formatted_size }}</span>
+                        <span><i class="fas fa-calendar-alt me-1 opacity-75"></i> {{ file_info.upload_date[:10] }}</span>
+                    </div>
+
+                    <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mb-4">
+                        {% set previewable = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'ogg', 'mp3', 'wav', 'pdf', 'txt', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'] %}
+                        
+                        {% if ext in previewable %}
+                            <button class="btn btn-outline-primary rounded-pill px-4 py-2 fw-medium" onclick="previewFile('{{ file_info.file_name }}', '{{ file_info.token }}')">
+                                <i class="fas fa-eye me-1"></i> Xem trước
+                            </button>
+                        {% endif %}
+                        
+                        <a href="{{ url_for('execute_public_download', token=file_info.token) }}" class="btn btn-primary rounded-pill px-4 py-2 fw-medium shadow-sm">
+                            <i class="fas fa-download me-1"></i> Tải xuống
+                        </a>
+                    </div>
+
+                    <div class="text-center mt-2">
+                        <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fw-medium">
+                            <i class="fas fa-shield-check me-1"></i> Đã mã hoá & Quét virus
+                        </span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="viewerModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content viewer-dark">
+                <div class="modal-header viewer-header px-3 px-md-4 py-3">
+                    <h6 class="modal-title text-white fw-normal text-truncate pe-3" id="viewerModalLabel" style="max-width: 90%;">Trình xem Tài liệu</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body p-0 position-relative d-flex align-items-center justify-content-center bg-black">
+                    
+                    <div id="viewerLoading" class="text-center position-absolute top-50 start-50 translate-middle">
+                        <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <p class="text-light fw-medium small">Đang tải dữ liệu...</p>
+                    </div>
+
+                    <div id="viewerContainer" class="w-100 h-100 d-flex align-items-center justify-content-center"></div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function previewFile(fileName, token) {
+            let fileUrl = encodeURIComponent(window.location.origin + '/s/' + token + '/download');
+            let directUrl = window.location.origin + '/s/' + token + '/download';
+            let ext = fileName.split('.').pop().toLowerCase();
+            let viewerContainer = document.getElementById('viewerContainer');
+            
+            viewerContainer.innerHTML = '';
+            document.getElementById('viewerLoading').style.display = 'block';
+
+            if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext)) {
+                viewerContainer.innerHTML = `<iframe src="https://docs.google.com/gview?url=${fileUrl}&embedded=true" class="w-100 h-100 border-0 bg-white" onload="document.getElementById('viewerLoading').style.display='none';"></iframe>`;
+            } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
+                document.getElementById('viewerLoading').style.display = 'none';
+                viewerContainer.innerHTML = `<video controls autoplay class="w-100 h-100"><source src="${directUrl}" type="video/${ext}"></video>`;
+            } else if (['mp3', 'wav'].includes(ext)) {
+                document.getElementById('viewerLoading').style.display = 'none';
+                viewerContainer.innerHTML = `<audio controls autoplay class="w-100 px-4"><source src="${directUrl}" type="audio/${ext}"></audio>`;
+            } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                document.getElementById('viewerLoading').style.display = 'none';
+                viewerContainer.innerHTML = `<img src="${directUrl}" class="img-fluid w-100 h-100 p-2" style="object-fit: contain;">`;
+            } else if (['pdf', 'txt'].includes(ext)) {
+                viewerContainer.innerHTML = `<iframe src="${directUrl}" class="w-100 h-100 border-0 bg-white" onload="document.getElementById('viewerLoading').style.display='none';"></iframe>`;
+            } else {
+                alert('Trình duyệt không hỗ trợ xem trước định dạng này.');
+                return;
+            }
+            
+            document.getElementById('viewerModalLabel').innerText = fileName;
+            
+            let viewerModal = document.getElementById('viewerModal');
+            viewerModal.addEventListener('hidden.bs.modal', function () {
+                viewerContainer.innerHTML = ''; // Dọn dẹp iframe/video khi tắt
+            });
+
+            new bootstrap.Modal(viewerModal).show();
+        }
+    </script>
+</body>
+</html>

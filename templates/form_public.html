@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ form.title }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style>
+        body { background-color: #f0ebf8; font-family: 'Google Sans', 'Roboto', sans-serif; padding-top: 30px; padding-bottom: 60px; color: #202124; }
+        .form-container { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+        .form-card { background: #ffffff; border-radius: 8px; border: 1px solid #dadce0; padding: 24px; margin-bottom: 12px; }
+        .form-title-card { border-top: 10px solid #673ab7; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        .form-title { font-size: 32px; font-weight: 400; line-height: 40px; color: #202124; margin-bottom: 8px; }
+        .form-desc { font-size: 14px; color: #5f6368; line-height: 20px; font-family: 'Roboto', sans-serif; }
+        .q-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; color: #202124; }
+        .q-required { color: #d93025; margin-left: 4px; }
+        
+        .form-control { border: none; border-bottom: 1px solid #dadce0; border-radius: 0; padding: 8px 0; background-color: transparent; }
+        .form-control:focus { box-shadow: none; border-bottom: 2px solid #673ab7; }
+        
+        .form-check-input:checked { background-color: #673ab7; border-color: #673ab7; }
+        .form-check-input:focus { box-shadow: 0 0 0 0.25rem rgba(103, 58, 183, 0.25); }
+        .form-check-label { color: #202124; margin-left: 8px; cursor: pointer; }
+        .form-check { margin-bottom: 12px; display: flex; align-items: center; }
+
+        .btn-submit { background-color: #673ab7; color: white; border-radius: 4px; padding: 10px 24px; font-weight: 500; border: none; transition: 0.2s; }
+        .btn-submit:hover { background-color: #5e35b1; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        .footer-text { text-align: center; font-size: 12px; color: #5f6368; margin-top: 24px; }
+        .footer-text a { color: #5f6368; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    {% if success %}
+    <div class="form-card form-title-card text-center py-5">
+        <h2 class="form-title mb-3">Biểu mẫu đã được gửi</h2>
+        <p class="form-desc">Câu trả lời của bạn đã được ghi lại một cách an toàn.</p>
+        <a href="{{ url_for('form_public', token=form.public_token) }}" class="text-decoration-none mt-3 d-inline-block" style="color: #673ab7; font-weight: 500;">Gửi phản hồi khác</a>
+    </div>
+    {% else %}
+    <form action="{{ url_for('form_public', token=form.public_token) }}" method="post">
+        <div class="form-card form-title-card">
+            <h1 class="form-title">{{ form.title }}</h1>
+            {% if form.description %}<div class="form-desc">{{ form.description }}</div>{% endif %}
+            <hr class="mt-4 mb-3 opacity-25">
+            <div class="text-danger small" style="font-family: 'Roboto', sans-serif;">* Biểu thị câu hỏi bắt buộc</div>
+        </div>
+
+        {% set fields = form.fields|from_json if form.fields else [] %}
+        {% for q in fields %}
+        <div class="form-card">
+            <div class="q-title">{{ q.label }} {% if q.required %}<span class="q-required">*</span>{% endif %}</div>
+            {% if q.type == 'text' %}
+                <input type="text" class="form-control w-100" name="{{ q.id }}" placeholder="Câu trả lời của bạn" {% if q.required %}required{% endif %}>
+            {% elif q.type == 'textarea' %}
+                <textarea class="form-control w-100" name="{{ q.id }}" rows="3" placeholder="Câu trả lời của bạn" {% if q.required %}required{% endif %}></textarea>
+            {% elif q.type == 'radio' %}
+                {% set opts = q.options.split(',') %}
+                {% for opt in opts %}
+                    {% if opt.strip() != '' %}
+                    <div class="form-check"><input class="form-check-input" type="radio" name="{{ q.id }}" id="{{ q.id }}_{{ loop.index }}" value="{{ opt.strip() }}" {% if q.required %}required{% endif %}><label class="form-check-label" for="{{ q.id }}_{{ loop.index }}">{{ opt.strip() }}</label></div>
+                    {% endif %}
+                {% endfor %}
+            {% elif q.type == 'checkbox' %}
+                {% set opts = q.options.split(',') %}
+                {% for opt in opts %}
+                    {% if opt.strip() != '' %}
+                    <div class="form-check"><input class="form-check-input" type="checkbox" name="{{ q.id }}" id="{{ q.id }}_{{ loop.index }}" value="{{ opt.strip() }}"><label class="form-check-label" for="{{ q.id }}_{{ loop.index }}">{{ opt.strip() }}</label></div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <button type="submit" class="btn-submit">Gửi</button>
+            <div class="text-secondary small" style="font-family: 'Roboto', sans-serif;">Xóa biểu mẫu</div>
+        </div>
+        
+        <div class="footer-text">Không bao giờ gửi mật khẩu thông qua Biểu mẫu này.<br>Nội dung này không do Telegram Drive tạo ra hay xác nhận. <a href="#">Báo cáo vi phạm</a></div>
+    </form>
+    {% endif %}
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

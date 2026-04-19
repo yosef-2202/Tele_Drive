@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}Drive của tôi - {{ site_name }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Thanh tác vụ hàng loạt */
+    .selection-bar {
+        display: none; position: fixed; top: 74px; left: 50%; transform: translateX(-50%);
+        z-index: 1060; background: var(--md-primary); color: white;
+        padding: 8px 24px; border-radius: 100px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        align-items: center; gap: 20px; transition: 0.3s ease;
+    }
+    .selection-bar.active { display: flex; animation: slideDown 0.3s ease; }
+    @keyframes slideDown { from { top: 40px; opacity: 0; } to { top: 74px; opacity: 1; } }
+
+    /* Ô Checkbox to và dễ bấm hơn */
+    .item-checkbox-wrapper { position: absolute; top: 12px; left: 12px; z-index: 20; opacity: 0; transition: 0.2s; }
+    .drive-file-card:hover .item-checkbox-wrapper, 
+    .drive-folder-card:hover .item-checkbox-wrapper,
+    .item-checkbox-wrapper.checked { opacity: 1; }
+    
+    .item-checkbox { width: 22px; height: 22px; cursor: pointer; border-radius: 6px; }
+    .drive-file-card.selected, .drive-folder-card.selected { background-color: #e8f0fe !important; border: 2px solid #1a73e8 !important; }
+
+    /* Tối ưu Modal xem Phim/Ảnh chuẩn Rạp chiếu */
+    .viewer-dark { background-color: #1f1f1f !important; }
+    .viewer-header { border-bottom: 1px solid #3c4043; background: #1f1f1f; }
+</style>
+
+<div id="selectionBar" class="selection-bar">
+    <div class="d-flex align-items-center gap-3 border-end pe-3">
+        <button class="btn btn-sm btn-link text-white p-0" onclick="clearSelection()"><i class="fas fa-times fs-5"></i></button>
+        <span id="selectedCount" class="fw-bold fs-5">0</span> mục
+    </div>
+    <div class="d-flex gap-3">
+        <button class="btn btn-sm text-white fw-bold" onclick="bulkDelete()" title="Xóa các mục đã chọn"><i class="fas fa-trash-alt me-2"></i> Xóa hàng loạt</button>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0 text-dark fw-normal">
+        {% if view_mode == 'shared' %}
+            <i class="fas fa-user-friends me-2 text-primary"></i>Được chia sẻ
+        {% elif current_folder_id %}
+            <a href="{{ url_for('index', folder_id=parent_folder_id) if parent_folder_id else url_for('index') }}" class="text-dark"><i class="fas fa-arrow-left me-3 fs-5 text-secondary"></i></a>
+            {{ current_folder_name }}
+        {% else %}
+            Drive của tôi
+        {% endif %}
+    </h1>
+    <div class="btn-group shadow-sm">
+        <button class="btn btn-light border-0" id="btnGrid" onclick="setView('grid')"><i class="fas fa-th-large text-secondary"></i></button>
+        <button class="btn btn-light border-0" id="btnList" onclick="setView('list')"><i class="fas fa-list text-secondary"></i></button>
+    </div>
+</div>
+
+<input type="file" id="fileInput" style="display: none" onchange="handleFiles(this.files)" multiple>
+
+<div id="uploadProgressContainer" class="mb-4 p-4 border rounded-4 shadow-sm bg-white" style="display: none;">
+    <div class="d-flex justify-content-between align-items-end mb-2">
+        <div>
+            <div class="text-dark fw-bold" id="uploadStatusText">Đang chuẩn bị...</div>
+            <div class="text-secondary mt-1 small" id="uploadStats">0 MB / 0 MB</div>
+        </div>
+        <span class="text-primary fw-bold fs-4" id="uploadPercentage">0%</span>
+    </div>
+    <div class="progress mb-3" style="height: 8px;"><div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%;"></div></div>
+    <div class="d-flex justify-content-between align-items-center">
+        <small id="uploadStatus" class="text-secondary fw-bold">Đang tải...</small>
+        <div class="d-flex gap-2">
+            <button id="btnPauseUpload" class="btn btn-sm btn-warning rounded-pill px-3 fw-bold" onclick="togglePauseUpload()">Tạm dừng</button>
+            <button class="btn btn-sm btn-danger rounded-pill px-3 fw-bold" onclick="cancelUpload()">Hủy Upload</button>
+        </div>
+    </div>
+</div>
+
+{% if folders_info %}
+<div class="drive-section-title">Thư mục</div>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3 mb-4 view-container">
+    {% for folder in folders_info %}
+    <div class="col" id="folder-col-{{ folder.id }}">
+        <div class="drive-folder-card shadow-sm position-relative">
+            <div class="item-checkbox-wrapper">
+                <input type="checkbox" class="item-checkbox folder-check" data-id="{{ folder.id }}" onclick="event.stopPropagation()" onchange="updateSelectionUI()">
+            </div>
+            
+            <a href="{{ url_for('index', folder_id=folder.id) }}" class="d-flex align-items-center text-dark text-truncate flex-grow-1 fw-medium text-decoration-none">
+                <i class="fas fa-folder text-warning fs-3 me-3 ms-4"></i> {{ folder.name }}
+            </a>
+
+            <div class="dropdown file-action-dropdown z-3">
+                <button class="btn-dots" data-bs-toggle="dropdown" data-bs-boundary="window" onclick="event.stopPropagation()"><i class="fas fa-ellipsis-v"></i></button>
+                <ul class="dropdown-menu shadow border-0">
+                    <li><a class="dropdown-item" href="#" onclick="openRenameModal('folder', '{{ folder.id }}', '{{ folder.name }}')"><i class="fas fa-pen me-3 text-primary"></i> Đổi tên</a></li>
+                    <li><a class="dropdown-item text-danger" href="{{ url_for('delete_folder', folder_id=folder.id) }}" onclick="return confirm('Xoá thư mục này?')"><i class="fas fa-trash me-3"></i> Xóa</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if files_info %}
+<div class="drive-section-title">Tệp tài liệu</div>
+<div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3 view-container">
+    {% for file in files_info %}
+    <div class="col" id="file-col-{{ file.id }}">
+        <div class="drive-file-card shadow-sm">
+            <div class="item-checkbox-wrapper">
+                <input type="checkbox" class="item-checkbox file-check" data-id="{{ file.id }}" onclick="event.stopPropagation()" onchange="updateSelectionUI()">
+            </div>
+            <div class="drive-file-preview">
+                {% set ext = file.file_name.split('.')[-1].lower() %}
+                {% if ext in ['jpg','png','jpeg','webp','gif'] %}<i class="fas fa-image fa-4x text-danger opacity-75"></i>
+                {% elif ext in ['mp4','mkv','mov','avi'] %}<i class="fas fa-video fa-4x text-danger opacity-75"></i>
+                {% elif ext in ['mp3','wav','m4a'] %}<i class="fas fa-music fa-4x text-info opacity-75"></i>
+                {% elif ext in ['doc','docx','pdf'] %}<i class="fas fa-file-word fa-4x text-primary opacity-75"></i>
+                {% elif ext in ['zip','rar','7z'] %}<i class="fas fa-file-archive fa-4x text-warning opacity-75"></i>
+                {% else %}<i class="fas fa-file-alt fa-4x text-secondary opacity-75"></i>{% endif %}
+            </div>
+            <div class="drive-file-info position-relative">
+                <div class="text-truncate flex-grow-1 pe-4">
+                    <div class="drive-file-name" title="{{ file.file_name }}">{{ file.file_name }}</div>
+                    <small class="text-secondary">{{ file.formatted_size }}</small>
+                </div>
+                <div class="dropdown file-action-dropdown">
+                    <button class="btn-dots" data-bs-toggle="dropdown" data-bs-boundary="window" onclick="event.stopPropagation()"><i class="fas fa-ellipsis-v"></i></button>
+                    <ul class="dropdown-menu shadow border-0">
+                        {% set ext = file.file_name.split('.')[-1].lower() if '.' in file.file_name else '' %}
+                        {% if ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'mkv', 'mov', 'avi', 'mp3', 'wav', 'm4a'] %}
+                            <li><a class="dropdown-item py-2 fw-medium" href="#" onclick="viewFile('{{ file.id }}', '{{ file.file_name }}', '{{ file.public_token }}')"><i class="fas fa-eye text-primary me-3"></i> Xem trực tiếp</a></li>
+                        {% endif %}
+                        <li><a class="dropdown-item py-2 fw-medium" href="{{ url_for('download_and_decrypt', file_id=file.id) }}"><i class="fas fa-download text-dark me-3"></i> Tải về</a></li>
+                        <li><a class="dropdown-item py-2 fw-medium" href="#" onclick="openRenameModal('file', '{{ file.id }}', '{{ file.file_name }}')"><i class="fas fa-pen me-3 text-info"></i> Đổi tên</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item py-2 text-danger fw-medium" href="{{ url_for('delete_file_entry', file_id=file.id) }}" onclick="return confirm('Xóa tệp này?')"><i class="fas fa-trash me-3"></i> Xóa</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="modal fade" id="viewerModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content viewer-dark">
+            <div class="modal-header viewer-header px-4 py-3 border-0 border-bottom border-dark">
+                <h5 class="modal-title text-white fw-normal text-truncate" id="viewerModalLabel" style="max-width: 90%;">Trình xem Tài liệu</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body p-0 position-relative d-flex align-items-center justify-content-center" style="background-color: #000000; height: 100%;">
+                <div id="viewerLoading" class="text-center position-absolute top-50 start-50 translate-middle">
+                    <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <p class="text-light fw-medium">Đang tải và giải mã dữ liệu...</p>
+                </div>
+
+                <div id="viewerContainer" class="w-100 h-100 d-flex align-items-center justify-content-center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-2">
+            <div class="modal-header border-0"><h5 class="modal-title fw-normal">Đổi tên</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="renameForm" method="post">
+                <div class="modal-body py-2">
+                    <input type="hidden" name="id" id="renameItemId">
+                    <input type="text" name="name" id="renameInput" class="form-control" required autofocus>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. CHỌN VÀ XÓA HÀNG LOẠT
+    function updateSelectionUI() {
+        const total = document.querySelectorAll('.file-check:checked, .folder-check:checked').length;
+        const bar = document.getElementById('selectionBar');
+        if(total > 0) { bar.classList.add('active'); document.getElementById('selectedCount').innerText = total; } 
+        else { bar.classList.remove('active'); }
+
+        document.querySelectorAll('.item-checkbox').forEach(cb => {
+            const card = cb.closest('.drive-file-card') || cb.closest('.drive-folder-card');
+            const wrapper = cb.closest('.item-checkbox-wrapper');
+            if(cb.checked) { card.classList.add('selected'); wrapper.classList.add('checked'); } 
+            else { card.classList.remove('selected'); wrapper.classList.remove('checked'); }
+        });
+    }
+
+    function clearSelection() { document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false); updateSelectionUI(); }
+    
+    async function bulkDelete() {
+        const fileIds = Array.from(document.querySelectorAll('.file-check:checked')).map(cb => cb.dataset.id);
+        const folderIds = Array.from(document.querySelectorAll('.folder-check:checked')).map(cb => cb.dataset.id);
+        if(!confirm(`Xóa vĩnh viễn ${fileIds.length + folderIds.length} mục đã chọn?`)) return;
+        
+        Swal.fire({title: 'Đang xóa...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() }});
+        for(let id of fileIds) await fetch('/delete/' + id);
+        for(let id of folderIds) await fetch('/delete_folder/' + id);
+        window.location.reload();
+    }
+
+    // 2. MODAL XEM TRỰC TIẾP (Fix MP4, MP3, ẢNH)
+    async function viewFile(fileId, fileName, publicToken) {
+        let token = publicToken;
+        if (!token || token === 'None' || token === '') {
+            let fd = new FormData(); fd.append('file_id', fileId);
+            let res = await fetch('/api/file/toggle_public', {method: 'POST', body: fd});
+            let data = await res.json();
+            if (data.error) { Swal.fire('Lỗi', data.error, 'error'); return; }
+            token = data.token;
+        }
+        
+        let directUrl = window.location.origin + '/s/' + token + '/download';
+        let ext = fileName.split('.').pop().toLowerCase();
+        let viewerContainer = document.getElementById('viewerContainer');
+        
+        // Reset trình xem
+        viewerContainer.innerHTML = '';
+        document.getElementById('viewerLoading').style.display = 'block';
+
+        // Phân loại định dạng
+        if (['mp4', 'webm', 'mkv', 'avi', 'mov'].includes(ext)) {
+            viewerContainer.innerHTML = `<video controls autoplay class="w-100 h-100" style="object-fit: contain; outline: none;"><source src="${directUrl}"></video>`;
+            document.getElementById('viewerLoading').style.display = 'none';
+        } else if (['mp3', 'wav', 'm4a', 'flac'].includes(ext)) {
+            viewerContainer.innerHTML = `<audio controls autoplay class="w-100 px-4"><source src="${directUrl}"></audio>`;
+            document.getElementById('viewerLoading').style.display = 'none';
+        } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+            viewerContainer.innerHTML = `<img src="${directUrl}" class="w-100 h-100 p-3" style="object-fit: contain;">`;
+            document.getElementById('viewerLoading').style.display = 'none';
+        } else if (['pdf', 'txt'].includes(ext)) {
+            viewerContainer.innerHTML = `<iframe src="${directUrl}" class="w-100 h-100 border-0 bg-white" onload="document.getElementById('viewerLoading').style.display='none';"></iframe>`;
+        } else if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext)) {
+            viewerContainer.innerHTML = `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(directUrl)}&embedded=true" class="w-100 h-100 border-0 bg-white" onload="document.getElementById('viewerLoading').style.display='none';"></iframe>`;
+        }
+        
+        document.getElementById('viewerModalLabel').innerText = fileName;
+        
+        // Dọn rác khi đóng Modal để tắt nhạc/video đang phát ngầm
+        let viewerModal = document.getElementById('viewerModal');
+        viewerModal.addEventListener('hidden.bs.modal', function () {
+            viewerContainer.innerHTML = ''; 
+        });
+
+        new bootstrap.Modal(viewerModal).show();
+    }
+
+    // 3. ĐỔI TÊN THÔNG MINH
+    function openRenameModal(type, id, currentName) {
+        const form = document.getElementById('renameForm');
+        document.getElementById('renameItemId').value = id; document.getElementById('renameInput').value = currentName;
+        if(type === 'folder') { form.action = "{{ url_for('rename_folder') }}"; document.getElementById('renameItemId').name = "folder_id"; } 
+        else { form.action = "/api/file/rename"; document.getElementById('renameItemId').name = "file_id"; }
+        new bootstrap.Modal(document.getElementById('renameModal')).show();
+    }
+
+    // 4. HỆ THỐNG UPLOAD QUEUE (CHỐNG RATE LIMIT VÀ LAG)
+    let fileQueue = [], isProcessingQueue = false, totalQueueSize = 0, currentQueueIndex = 0;
+    let uploadIsPaused = false, uploadIsCancelled = false, currentUploadFileId = null;
+
+    function formatBytes(bytes, decimals = 2) {
+        if (!+bytes) return '0 B'; const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+
+    function handleFiles(files) { 
+        fileQueue.push(...files); totalQueueSize += files.length;
+        if (!isProcessingQueue) processQueue();
+    }
+
+    async function processQueue() {
+        isProcessingQueue = true;
+        document.getElementById('uploadProgressContainer').style.display = 'block';
+
+        while (fileQueue.length > 0) {
+            if (uploadIsCancelled) { fileQueue = []; break; }
+            let file = fileQueue.shift(); currentQueueIndex++;
+            await uploadSingleFile(file, currentQueueIndex, totalQueueSize);
+        }
+        isProcessingQueue = false; totalQueueSize = 0; currentQueueIndex = 0;
+        if (!uploadIsCancelled) { setTimeout(() => window.location.reload(), 1000); }
+    }
+
+    function togglePauseUpload() {
+        uploadIsPaused = !uploadIsPaused;
+        let btn = document.getElementById('btnPauseUpload');
+        btn.innerText = uploadIsPaused ? 'Tiếp tục' : 'Tạm dừng';
+        btn.className = uploadIsPaused ? 'btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm' : 'btn btn-sm btn-warning rounded-pill px-3 fw-bold shadow-sm';
+    }
+
+    async function cancelUpload() {
+        uploadIsCancelled = true;
+        if (currentUploadFileId) await fetch('/delete/' + currentUploadFileId);
+        document.getElementById('uploadProgressContainer').style.display = 'none';
+        Swal.fire('Đã hủy', 'Đã xóa hàng đợi tải lên.', 'info');
+        setTimeout(() => window.location.reload(), 1000);
+    }
+
+    async function uploadSingleFile(file, index, total) {
+        const chunkSize = 45 * 1024 * 1024; const totalChunks = Math.ceil(file.size / chunkSize);
+        document.getElementById('uploadStatusText').innerText = `[${index}/${total}] ${file.name}`;
+        uploadIsPaused = false; currentUploadFileId = null;
+        const startTime = Date.now();
+        
+        try {
+            let initFd = new FormData(); initFd.append('file_name', file.name); initFd.append('file_size', file.size); initFd.append('folder_id', '{{ current_folder_id or "" }}');
+            let initRes = await fetch("{{ url_for('init_upload') }}", { method: 'POST', body: initFd });
+            let initData = await initRes.json();
+            if(initData.error) return;
+            currentUploadFileId = initData.file_id;
+
+            for (let i = 0; i < totalChunks; ) {
+                if (uploadIsCancelled) return; 
+                if (uploadIsPaused) { await new Promise(r => setTimeout(r, 1000)); continue; }
+
+                let start = i * chunkSize, end = Math.min(start + chunkSize, file.size);
+                let chunkData = new FormData(); chunkData.append('chunk', file.slice(start, end)); chunkData.append('file_id', currentUploadFileId); chunkData.append('chunk_index', i); chunkData.append('total_chunks', totalChunks);
+                
+                try {
+                    document.getElementById('uploadStatus').innerText = `Khối ${i + 1}/${totalChunks}...`;
+                    let res = await fetch("{{ url_for('upload_chunk') }}", { method: 'POST', body: chunkData });
+                    if (!res.ok) throw new Error('HTTP error');
+                    let data = await res.json();
+                    if (data.status !== 'success') throw new Error(data.error);
+
+                    i++; 
+                    let speed = end / ((Date.now() - startTime) / 1000);
+                    document.getElementById('uploadProgressBar').style.width = Math.round((end / file.size) * 100) + '%';
+                    document.getElementById('uploadPercentage').innerText = Math.round((end / file.size) * 100) + '%';
+                    document.getElementById('uploadStats').innerText = `${formatBytes(end)} / ${formatBytes(file.size)} • ${formatBytes(speed)}/s`;
+
+                } catch (error) {
+                    document.getElementById('uploadStatus').innerText = 'Lỗi mạng. Tự thử lại sau 3s...';
+                    document.getElementById('uploadProgressBar').classList.add('bg-danger');
+                    await new Promise(r => setTimeout(r, 3000));
+                    document.getElementById('uploadProgressBar').classList.remove('bg-danger');
+                }
+            }
+        } catch (error) {}
+    }
+
+    // 5. Quản lý Hiển thị (Lưới / Danh sách)
+    function setView(viewType) {
+        localStorage.setItem('drive_view_preference', viewType);
+        const containers = document.querySelectorAll('.view-container');
+        if (viewType === 'list') {
+            containers.forEach(c => c.classList.add('list-view-container'));
+            document.getElementById('btnList').classList.replace('btn-light', 'btn-primary');
+            document.getElementById('btnGrid').classList.replace('btn-primary', 'btn-light');
+        } else {
+            containers.forEach(c => c.classList.remove('list-view-container'));
+            document.getElementById('btnGrid').classList.replace('btn-light', 'btn-primary');
+            document.getElementById('btnList').classList.replace('btn-primary', 'btn-light');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        setView(localStorage.getItem('drive_view_preference') || 'grid');
+    });
+</script>
+{% endblock %}
