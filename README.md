@@ -108,4 +108,4 @@ Dự án được phát hành dưới giấy phép MIT. Tự do sử dụng và 
 2.  **License:** Nếu bạn muốn hoàn thiện hơn, hãy tạo thêm một file tên là `LICENSE` và dán nội dung giấy phép MIT vào đó.
 
 Chúc dự án của bạn nhận được thật nhiều Star trên GitHub nhé!
-***
+```
