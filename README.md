@@ -96,8 +96,7 @@ Sau khi dùng lệnh `/login <username> <password>` trên Telegram để liên k
 ## ⚠️ Lưu ý quan trọng
 * **Tệp Database:** File `data/file_data.db` cực kỳ quan trọng. Nó chứa toàn bộ Khóa giải mã AES. Nếu mất file này, bạn sẽ không thể mở lại các tệp đã tải lên Telegram. Hãy thường xuyên bấm nút **Backup** trong Admin Panel.
 * **Bảo mật:** Không chia sẻ file dữ liệu cho người lạ vì nó chứa các thông tin cấu hình nhạy cảm.
-
----
+## [🖊️ĐÁNH GIÁ](https://dapln.rf.gd/)
 
 ## 📄 Giấy phép
 Dự án được phát hành dưới giấy phép MIT. Tự do sử dụng và phát triển thêm.
