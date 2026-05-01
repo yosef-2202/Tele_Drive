@@ -10,6 +10,12 @@
     --md-on-primary-container: #001d35;
     --md-border: #dadce0;
     --md-hover: #f0f4f9;
+    
+    /* Dark Mode / Modal variables */
+    --bg-dark: #0f172a;
+    --card-dark: #1e293b;
+    --text-light: #f8fafc;
+    --text-muted: #94a3b8;
 }
 
 body { background-color: var(--md-bg); color: var(--md-text-primary); font-family: 'Google Sans', 'Roboto', sans-serif; min-height: 100vh; margin: 0; overflow-x: hidden; }
@@ -40,19 +46,12 @@ a:hover { color: var(--md-primary-hover); }
 .drive-section-title { font-size: 15px; font-weight: 500; color: var(--md-text-primary); margin: 32px 0 16px 0; }
 
 /* ================= TÍNH NĂNG CHỌN HÀNG LOẠT (SELECTION) ================= */
-.selection-bar {
-    display: none; position: fixed; top: 74px; left: 50%; transform: translateX(-50%);
-    z-index: 1060; background: var(--md-primary); color: white;
-    padding: 8px 24px; border-radius: 100px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    align-items: center; gap: 20px; transition: 0.3s ease;
-}
+.selection-bar { display: none; position: fixed; top: 74px; left: 50%; transform: translateX(-50%); z-index: 1060; background: var(--md-primary); color: white; padding: 8px 24px; border-radius: 100px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); align-items: center; gap: 20px; transition: 0.3s ease; }
 .selection-bar.active { display: flex; animation: slideDown 0.3s ease; }
 @keyframes slideDown { from { top: 40px; opacity: 0; } to { top: 74px; opacity: 1; } }
 
 .item-checkbox-wrapper { position: absolute; top: 10px; left: 10px; z-index: 15; opacity: 0; transition: 0.2s; }
-.drive-file-card:hover .item-checkbox-wrapper, 
-.drive-folder-card:hover .item-checkbox-wrapper,
-.item-checkbox-wrapper.checked { opacity: 1; }
+.drive-file-card:hover .item-checkbox-wrapper, .drive-folder-card:hover .item-checkbox-wrapper, .item-checkbox-wrapper.checked { opacity: 1; }
 .item-checkbox { width: 20px; height: 20px; cursor: pointer; border-radius: 4px; }
 .drive-file-card.selected, .drive-folder-card.selected { background-color: #e8f0fe !important; border: 1px solid #1a73e8 !important; }
 
@@ -96,6 +95,14 @@ a:hover { color: var(--md-primary-hover); }
 ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
 
+/* ================= MODAL DARK THEME ================= */
+body.dark-mode { background-color: var(--bg-dark); color: var(--text-light); }
+.custom-dark-modal { background-color: var(--card-dark); color: var(--text-light); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
+.custom-dark-modal .icon-wrapper { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background-color: rgba(255,255,255,0.1); }
+.custom-dark-modal .info-box { background-color: rgba(255,255,255,0.05); font-size: 14px; }
+.btn-action-sm { color: var(--text-muted); font-size: 12px; border: none; background: transparent; transition: 0.2s; }
+.btn-action-sm:hover { color: var(--text-light); background: rgba(255,255,255,0.1); border-radius: 8px; }
+
 /* ================= RESPONSIVE MOBILE TỐI ƯU ================= */
 @media (max-width: 768px) {
     .sidebar-wrapper { position: fixed; top: 64px; left: 0; transform: translateX(-100%); height: calc(100vh - 64px); box-shadow: 2px 0 12px rgba(0,0,0,0.15); width: 280px; }
@@ -111,8 +118,6 @@ a:hover { color: var(--md-primary-hover); }
     .form-card { padding: 16px !important; }
     .title-input { font-size: 24px !important; line-height: 32px !important; }
     .floating-tools { top: auto !important; bottom: 20px !important; right: 50% !important; transform: translateX(50%) !important; flex-direction: row !important; border-radius: 100px !important; padding: 8px 16px !important; }
-    
-    /* Chỉnh kích thước thanh chọn hàng loạt trên Mobile */
     .selection-bar { width: 90%; justify-content: space-between; padding: 8px 16px; font-size: 14px; }
 }
 
